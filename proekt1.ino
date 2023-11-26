@@ -40,13 +40,11 @@ void interrupt_3(){
 LCD_1602_RUS lcd(0x27,16,2);
 
   ISR(TIMER2_A) {
-    if (void_flag == true) {
+  if (void_flag == true) {
   digitalWrite(DIMMER_PIN, 1);
   Timer2.stop();
-    }
   }
-
-
+  }
 
 long temps10=0 ;
 
@@ -114,7 +112,7 @@ void loop() {
     if (!digitalRead(5) && batton_flag == false) {
       batton_flag = true;
       void_flag = !void_flag;
-      } else {
+    } else {
       batton_flag = false;
     }
     if (void_flag == true) {
