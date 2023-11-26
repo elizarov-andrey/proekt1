@@ -94,6 +94,9 @@ void setup() {
 }
 
 void loop() {
+    if (micros() - lastflash > 1000000) {
+      RPM = 0;
+    }
     if (!digitalRead(7)) {
       dim = dim + 10;
     }
@@ -106,33 +109,25 @@ void loop() {
     if (!digitalRead(13)) {
       minets = minets - 1;
     }
-    if ((!digitalRead(5) && batton_flag == false) && millis() > 50) {
+    if (!digitalRead(5) && batton_flag == false) {
       batton_flag = true;
       void_flag = !void_flag;
     }
-    switch (void_flag) {
-    case true:
+    if (void_flag == true) {
       if ((millis()-temps10)>=10) {
         temps10=millis();
-        switch (void_flag) {
-        case true:
-          computePID();
-          break;
-        }
+        computePID();
       }
       lcd.setCursor(0, 0);
        lcd.print((String(String(RPM)) + String(" Оборотов                 ")));
        lcd.setCursor(0, 1);
-       lcd.print((String(String(PIDout)) + String(" Время")));
-       if (micros() - lastflash > 1000000) {
-        RPM = 0;
-      }
-      break;
-     default :
+       lcd.print((String(String(dim)) + String(" Таймер           ")));
+       }
+    if (void_flag == false) {
       lcd.setCursor(0, 0);
        lcd.print((String(String(dim)) + String(" Обороты         ")));
        lcd.setCursor(0, 1);
        lcd.print((String(String(minets)) + String(":") + String(String(seconds)) + String(" Время             ")));
-        }
+       }
 
 }
