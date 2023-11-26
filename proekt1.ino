@@ -112,6 +112,8 @@ void loop() {
     if (!digitalRead(5) && batton_flag == false) {
       batton_flag = true;
       void_flag = !void_flag;
+      } else {
+      batton_flag = false;
     }
     if (void_flag == true) {
       if ((millis()-temps10)>=10) {
