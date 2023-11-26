@@ -40,8 +40,10 @@ void interrupt_3(){
 LCD_1602_RUS lcd(0x27,16,2);
 
   ISR(TIMER2_A) {
+    if (void_flag == true) {
   digitalWrite(DIMMER_PIN, 1);
   Timer2.stop();
+    }
   }
 
 
