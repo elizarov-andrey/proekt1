@@ -112,7 +112,7 @@ void loop() {
     if (!digitalRead(13)) { //- минуты
       minets = minets - 1;
     }
-    if (!digitalRead(5) && batton_flag == false) { //кнопка старт-стоп
+    if (!digitalRead(5) && batton_flag == false) { // кнопка старт-стоп
       if ((millis()-temps500)>=500) {
         temps500=millis();
         batton_flag = true;
