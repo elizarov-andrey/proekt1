@@ -112,13 +112,14 @@ void loop() {
     if (!digitalRead(13)) { //- минуты
       minets = minets - 1;
     }
-    if (!digitalRead(5) && batton_flag == false) { //старт-стоп
-      batton_flag = true;
-      void_flag = !void_flag;
-    } else {
+    if (!digitalRead(5) && batton_flag == false) { //кнопка старт-стоп
       if ((millis()-temps500)>=500) {
         temps500=millis();
-        batton_flag = false;
+        batton_flag = true;
+      }
+      void_flag = !void_flag;
+    } else {
+      batton_flag = false;
       }
     }
     if (void_flag == true) { //если члаг истина вызываем функцию пид каждые 10 милисикунд
