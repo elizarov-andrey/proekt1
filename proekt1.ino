@@ -1,37 +1,38 @@
 #include <GyverTimers.h>
 
 
-int RPM = 0; //датчик оборотов двигателя
+int RPM = 0;
 long lastflash = 0;
-int dimmer = (constrain(9700,9700,300)); //временной интервал вкл. симистора
-int dim = (constrain(100,100,2700)); //значение заданных оборотов
-float err = 0; //пид
-float integral = 0; //пид
-float D = 0; //пид
-long PIDout = 0; //пид
-byte minets = 3; //переменная минут
-byte seconds = 0; //переменная секунд
-byte batton_flag = 0; //флаг кнопки пин 5
-boolean void_flag = false; //флаг включения вункчий работы 
-float kp = 0.7; //пид
-float ki = 0.8; //пид
-float kd = 0.04; //пид
-float dt = 0.01; //пид
-int disp_flag; //флаг отображения информации дисплея
-float prevErr = 0; //пид
+long timeflash = 0;
+int dimmer = (constrain(9700,9700,300));
+int dim = 100;
+float err = 0;
+float integral = 0;
+float D = 0;
+long PIDout = 0;
+int minets = 5;
+int seconds = 0;
+boolean batton_flag = false;
+boolean void_flag = false;
+byte disp_flag = 0;
+int s = 1;
+int m = 0;
+boolean timers = false;
+boolean batton_flag2 = false;
+boolean error_flag = false;
+float prevErr = 0;
+float kp = 0.7;
+float ki = 0.8;
+float kd = 0.04;
+float dt = 0.01;
 
 
-//функция рассчета оборотов сдатчика на 3 пине
-void interrupt_3(){
-  RPM = 60 / ((float)(micros()-lastflash)/1000000);
-  lastflash = micros();
-}
 
-#define ZERO_PIN 2 //прерывание точки нуля синусоиды АС
+#define ZERO_PIN 2
 
 #define INT_NUM 0
 
-#define DIMMER_PIN 4 //управление пином симистора
+#define DIMMER_PIN 4
 
 
 
@@ -39,7 +40,7 @@ void interrupt_3(){
 #include <LCD_1602_RUS.h>
 
 LCD_1602_RUS lcd(0x27,16,2);
-//функция таймера включения симистора
+
   ISR(TIMER2_A) {
   if (void_flag == true) {
   digitalWrite(DIMMER_PIN, 1);
@@ -47,10 +48,16 @@ LCD_1602_RUS lcd(0x27,16,2);
   }
   }
 
-long temps500=0 ;
+void interrupt_3(){
+  RPM = 60 / ((float)(micros()-lastflash)/1000000);
+  lastflash = micros();
+}
+
+long temps400=0 ;
+long temps3=0 ;
+long temps800=0 ;
 long temps10=0 ;
-long temps1=0 ;
-//пид регулятор
+
 void computePID() {
   err = dim - RPM;
   integral = (constrain((integral + (err * dt) * ki),0,3000));
@@ -59,7 +66,15 @@ void computePID() {
   PIDout = (constrain(((err * kp + integral) + D * kd),0,3000));
   dimmer = map(PIDout, 0, 3000, 9700, 300);
 }
-//функция выключения симмистора и сравнения заданного интервала времени
+
+void PIN10() {
+  pinMode(10, OUTPUT);
+   digitalWrite(10, 1);
+  delay(150);
+  pinMode(10, OUTPUT);
+   digitalWrite(10, 0);
+}
+
 void isr() {
 
 static int lastDim;
@@ -74,10 +89,9 @@ else Timer2.restart();
 
 
 void setup() {
-  attachInterrupt(digitalPinToInterrupt(3),interrupt_3,FALLING);// прерывание датчика оборотов
-  pinMode(ZERO_PIN, INPUT_PULLUP); 
+  pinMode(ZERO_PIN, INPUT_PULLUP);
 
-  pinMode(DIMMER_PIN, OUTPUT); //симистор
+  pinMode(DIMMER_PIN, OUTPUT);
 
   attachInterrupt(INT_NUM, isr, RISING);
 
@@ -88,73 +102,165 @@ void setup() {
   lcd.init();
  lcd.backlight();
 
-  pinMode(7, INPUT_PULLUP); //кнопка значения +10 оборото
-  pinMode(8, INPUT_PULLUP); //кнопка значения -10 оборото
-  pinMode(12, INPUT_PULLUP);  //кнопка значения +1 минута таймера
-  pinMode(13, INPUT_PULLUP); //кнопка значения -1 минута таймера
-  pinMode(5, INPUT_PULLUP);  //кнопка старт-стоп
+  attachInterrupt(digitalPinToInterrupt(3),interrupt_3,FALLING);
+  pinMode(6, INPUT_PULLUP);
+  pinMode(9, OUTPUT);
+  pinMode(5, INPUT_PULLUP);
+  pinMode(7, INPUT_PULLUP);
+  pinMode(8, INPUT_PULLUP);
+  pinMode(11, INPUT_PULLUP);
+  pinMode(12, INPUT_PULLUP);
 
 }
 
 void loop() {
-    if (micros() - lastflash > 1000000) { //если с датчика нет сигнала больше сикунды отображать ноль
+    if (analogRead(A0) > 900) {
+      error_flag = true;
+      disp_flag = 4;
+      void_flag = false;
+    } else if ((analogRead(A0) > 600 && analogRead(A0) < 900) && disp_flag != 5) {
+      error_flag = true;
+      disp_flag = 3;
+      void_flag = false;
+    } else {
+      if (disp_flag != 4) {
+        error_flag = false;
+      }
+      if ((millis()-temps400)>=400) {
+        temps400=millis();
+        if (disp_flag != 5) {
+          disp_flag = 0;
+        }
+      }
+    }
+    if (RPM >= dim) {
+      timers = true;
+    }
+    if (micros() - lastflash > 1000000) {
       RPM = 0;
     }
-    if (!digitalRead(7)) { //+ обороты
-      dim = dim + 10;
-    }
-    if (!digitalRead(8)) { //- обороты
-      dim = dim - 10;
-    }
-    if (!digitalRead(12)) { //+ минуты
-      minets = minets + 1;
-    }
-    if (!digitalRead(13)) { //- минуты
-      minets = minets - 1;
-    }
-    if (!digitalRead(5) && batton_flag == false) { // кнопка старт-стоп
-      if ((millis()-temps500)>=500) {
-        temps500=millis();
-        batton_flag = true;
+    if (disp_flag == 1 && timers == true) {
+      if (micros() - timeflash > 1000000) {
+        timeflash = micros();
+        s = s - 1;
+        if (s < 0) {
+          s = 59;
+          m = m - 1;
+          if (m < 0) {
+            m = 0;
+          }
+        }
       }
-      void_flag = !void_flag;
+    }
+    if (m == 0 && s == 0) {
+      disp_flag = 2;
+      timers = false;
+      void_flag = false;
+      s = 1;
+    }
+    if (!digitalRead(6) && batton_flag == false) {
+      batton_flag = true;
+      dimmer = 9700;
+      if (void_flag == true) {
+        disp_flag = 5;
+        void_flag = false;
+        timers = false;
+      } else if (disp_flag == 4) {
+        disp_flag = 0;
+      }
+      pinMode(9, OUTPUT);
+       digitalWrite(9, 1);
+      PIN10();
     } else {
-      batton_flag = false;
+      if ((millis()-temps3)>=3*1000) {
+        temps3=millis();
+        batton_flag = false;
+        disp_flag = 0;
+         analogWrite(9, 0);
       }
     }
-    if (void_flag == true) { //если члаг истина вызываем функцию пид каждые 10 милисикунд
+    if (!digitalRead(5) && batton_flag == false) {
+      batton_flag = true;
+      dimmer = 9700;
+      if (disp_flag != 4) {
+        void_flag = !void_flag;
+        s = seconds;
+        m = minets;
+      } else if (disp_flag == 4) {
+        disp_flag = 0;
+      }
+    } else {
+      if ((millis()-temps800)>=800) {
+        temps800=millis();
+        batton_flag = false;
+      }
+    }
+    if (void_flag == true) {
       disp_flag = 1;
       if ((millis()-temps10)>=10) {
         temps10=millis();
         computePID();
       }
-      if ((millis()-temps1)>=1*1000) { //таймер времени
-        temps1=millis();
-        if (seconds <= 0) {
-          seconds = 59;
-          minets = minets - 1;
-          if (minets < 0) {
-            minets = 0;
-            if (seconds == 0 & minets == 0) {
-              void_flag = false;
-              disp_flag = 2; //отображение информации на дисплее о завершении
-            }
-          }
-        }
-      }
     }
     switch (disp_flag) {
-    case 0: // отображение на дисплее задания параметров
+    case 0:
+      if ((!digitalRead(7) && batton_flag2 == false) && error_flag == false) {
+        batton_flag = true;
+        dim = dim + 10;
+      } else {
+        if ((millis()-temps400)>=400) {
+          temps400=millis();
+          batton_flag = false;
+        }
+      }
+      if ((!digitalRead(8) && batton_flag2 == false) && error_flag == false) {
+        batton_flag = true;
+        dim = dim - 10;
+      } else {
+        if ((millis()-temps400)>=400) {
+          temps400=millis();
+          batton_flag = false;
+        }
+      }
+      if ((!digitalRead(11) && batton_flag2 == false) && error_flag == false) {
+        batton_flag = true;
+        minets = minets + 1;
+      } else {
+        if ((millis()-temps400)>=400) {
+          temps400=millis();
+          batton_flag = false;
+        }
+      }
+      if ((!digitalRead(12) && batton_flag2 == false) && error_flag == false) {
+        batton_flag = true;
+        minets = minets - 1;
+      } else {
+        if ((millis()-temps400)>=400) {
+          temps400=millis();
+          batton_flag = false;
+        }
+      }
+      timers = false;
+      if (dim < 100) {
+        dim = 100;
+      } else if (dim > 2700) {
+        dim = 2700;
+      }
       lcd.setCursor(0, 0);
-       lcd.print((String(String(dim)) + String(" Обороты         ")));
-       if (minets < 10) {
+       lcd.print((String((constrain(dim,100,2700))) + String(" Обороты         ")));
+       if (minets < 1) {
+        minets = 99;
+      } else if (minets > 99) {
+        minets = 1;
+      }
+      if (minets < 10) {
         lcd.setCursor(0, 1);
          lcd.print("0");
          lcd.setCursor(1, 1);
-         lcd.print((String(String(minets))));
+         lcd.print((String((constrain(minets,0,59)))));
          } else {
         lcd.setCursor(0, 1);
-         lcd.print((String(String(minets))));
+         lcd.print((String((constrain(minets,0,99)))));
          }
       lcd.setCursor(2, 1);
        lcd.print(":");
@@ -162,62 +268,82 @@ void loop() {
         lcd.setCursor(3, 1);
          lcd.print("0");
          lcd.setCursor(4, 1);
-         lcd.print((String(String(seconds))));
+         lcd.print((String((constrain(seconds,0,59)))));
          } else {
         lcd.setCursor(3, 1);
-         lcd.print((String(String(seconds))));
+         lcd.print((String((constrain(seconds,0,59)))));
          }
-      lcd.setCursor(6, 1);
-       lcd.print((String("Время")));
+      lcd.setCursor(5, 1);
+       lcd.print((String(" Таймер   ")));
          break;
-     case 1: //отображение на дисплее оборотов с датчика и таймера во время работы
-      lcd.setCursor(0, 0);
-       lcd.print((String(String(RPM)) + String(" Оборотов                 ")));
-       if (minets < 10) {
-        lcd.setCursor(0, 1);
-         lcd.print("0");
-         lcd.setCursor(1, 1);
-         lcd.print((String(String(minets))));
-         } else {
-        lcd.setCursor(0, 1);
-         lcd.print((String(String(minets))));
-         }
-      lcd.setCursor(2, 1);
-       lcd.print(":");
-       if (seconds < 10) {
-        lcd.setCursor(3, 1);
-         lcd.print("0");
-         lcd.setCursor(4, 1);
-         lcd.print((String(String(seconds))));
-         } else {
-        lcd.setCursor(3, 1);
-         lcd.print((String(String(seconds))));
-         }
-      lcd.setCursor(6, 1);
-       lcd.print("Вреля");
-       if (void_flag == false & ((disp_flag != 2 & disp_flag != 3) & disp_flag != 4)) {
+     case 1:
+      if (void_flag == false && (((disp_flag != 2 && disp_flag != 3) && disp_flag != 4) && disp_flag != 5)) {
         disp_flag = 0;
       }
-      break;
-     case 2: //отображени на дисплее об окончании процесса работы
       lcd.setCursor(0, 0);
-       lcd.print("Процесс");
-       lcd.setCursor(0, 1);
-       lcd.print("завершон!");
-       delay(10000);
-      disp_flag = 0;
-      break;
-     case 3: //отображение ошибки о незакрытой крышки
-      lcd.setCursor(0, 0);
-       lcd.print("Не закрыта ");
-       lcd.setCursor(0, 1);
-       lcd.print("крышка!");
+       lcd.print((String(RPM) + String(" Оборотов                 ")));
+       if (m < 10) {
+        lcd.setCursor(0, 1);
+         lcd.print("0");
+         lcd.setCursor(1, 1);
+         lcd.print((String(m)));
+         } else {
+        lcd.setCursor(0, 1);
+         lcd.print((String(m)));
+         }
+      lcd.setCursor(2, 1);
+       lcd.print(":");
+       if (s < 10) {
+        lcd.setCursor(3, 1);
+         lcd.print("0");
+         lcd.setCursor(4, 1);
+         lcd.print((String(s)));
+         } else {
+        lcd.setCursor(3, 1);
+         lcd.print((String(s)));
+         }
+      lcd.setCursor(5, 1);
+       lcd.print(" Время     ");
          break;
-     case 4: //отображение ошибки о вибрации двигателя
+     case 2:
+      pinMode(9, OUTPUT);
+       digitalWrite(9, 1);
+      if ((millis()-temps3)>=3*1000) {
+        temps3=millis();
+        pinMode(9, OUTPUT);
+         digitalWrite(9, 0);
+      }
+      PIN10();
       lcd.setCursor(0, 0);
-       lcd.print("Дизбаланс");
+       lcd.print("Процесс         ");
        lcd.setCursor(0, 1);
-       lcd.print("ротора!");
+       lcd.print("завершон!       ");
+       disp_flag = 0;
+      break;
+     case 3:
+      lcd.setCursor(0, 0);
+       lcd.print("Не закрыта      ");
+       lcd.setCursor(0, 1);
+       lcd.print("крышка!         ");
+         break;
+     case 4:
+      pinMode(9, OUTPUT);
+       digitalWrite(9, 1);
+      if ((millis()-temps3)>=3*1000) {
+        temps3=millis();
+        pinMode(9, OUTPUT);
+         digitalWrite(9, 0);
+      }
+      lcd.setCursor(0, 0);
+       lcd.print("Дизбаланс       ");
+       lcd.setCursor(0, 1);
+       lcd.print("ротора!         ");
+         break;
+     case 5:
+      lcd.setCursor(0, 0);
+       lcd.print("Процесс         ");
+       lcd.setCursor(0, 1);
+       lcd.print("прерван!        ");
          break;
     }
 
